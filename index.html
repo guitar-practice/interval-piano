@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Piano</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #111;
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    gap: 8px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
+  }
+
+  .tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px;
+    border-radius: 20px;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; color: #666;
+    transition: all 0.2s;
+    border: none; background: transparent;
+  }
+  .tab.active { background: #5c35b5; color: #fff; }
+  .tab svg { width: 16px; height: 16px; }
+
+  .spacer { flex: 1; }
+
+  .right-controls { display: flex; align-items: center; gap: 8px; }
+
+  .pill-btn {
+    display: flex; align-items: center; gap: 7px;
+    background: #252525; border: 1px solid #3a3a3a;
+    border-radius: 20px; padding: 6px 14px;
+    cursor: pointer; transition: all 0.2s;
+    font-size: 13px; color: #aaa;
+    white-space: nowrap;
+  }
+  .pill-btn.on {
+    background: #1a3a2a; border-color: #2e7d52; color: #4ade80;
+  }
+  .pill-btn .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #555; transition: background 0.2s; flex-shrink: 0;
+  }
+  .pill-btn.on .dot { background: #4ade80; }
+
+  /* ── INFO PANEL ── */
+  .info-panel {
+    background: #161616;
+    padding: 12px 20px;
+    text-align: center;
+    flex-shrink: 0;
+    min-height: 68px;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  .interval-name {
+    font-size: 24px; font-weight: 600; color: #fff;
+    letter-spacing: 0.02em;
+    transition: opacity 0.15s;
+  }
+  .interval-name.hidden { opacity: 0; pointer-events: none; }
+
+  .notes-played {
+    font-size: 13px; color: #666;
+  }
+
+  /* ── QUIZ PANEL ── */
+  .quiz-panel {
+    background: #161616;
+    padding: 14px 20px;
+    flex-shrink: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    border-bottom: 1px solid #2a2a2a;
+    flex-wrap: wrap;
+  }
+  .quiz-panel.visible { display: flex; }
+
+  .quiz-prompt {
+    text-align: center;
+  }
+  .quiz-prompt .label {
+    font-size: 11px; color: #555; text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 3px;
+  }
+  .quiz-prompt .value {
+    font-size: 20px; font-weight: 600; color: #fff;
+  }
+  .quiz-prompt .value.dim { color: #888; font-size: 14px; font-weight: 400; }
+
+  .randomize-btn {
+    background: #5c35b5; border: none;
+    color: #fff; font-size: 14px; font-weight: 500;
+    padding: 9px 22px; border-radius: 20px;
+    cursor: pointer; transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .randomize-btn:hover { background: #7045d5; }
+
+  .quiz-result {
+    font-size: 13px; text-align: center;
+  }
+  .quiz-result.correct { color: #4ade80; }
+  .quiz-result.wrong   { color: #f87171; }
+  .quiz-result.waiting { color: #666; }
+
+  /* ── PIANO WRAPPER ── */
+  .piano-area {
+    flex: 1;
+    background: linear-gradient(180deg, #1a1a1a 0%, #111 3%);
+    position: relative;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  .piano-bridge {
+    height: 10px;
+    background: linear-gradient(180deg, #8b0000 0%, #5a0000 100%);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+    flex-shrink: 0; z-index: 10;
+  }
+
+  /* ── KEYS ── */
+  .keys-container {
+    flex: 1; position: relative;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .keys-inner {
+    position: relative;
+    display: flex;
+    height: 100%;
+    width: 100%;
+  }
+
+  .white-key {
+    position: relative;
+    flex: 1;
+    height: 100%;
+    background: linear-gradient(180deg, #f0f0f0 0%, #fff 15%, #fafafa 100%);
+    border-left: 1px solid #bbb;
+    border-bottom: 1px solid #999;
+    border-radius: 0 0 6px 6px;
+    cursor: pointer;
+    transition: background 0.05s;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 14px;
+    box-shadow: inset 0 -4px 8px rgba(0,0,0,0.15), 2px 0 0 rgba(255,255,255,0.5);
+    min-width: 0;
+  }
+  .white-key:last-child { border-right: 1px solid #bbb; }
+
+  .white-key.active {
+    background: linear-gradient(180deg, #c8d8f0 0%, #b0c8e8 15%, #a0b8d8 100%);
+    box-shadow: inset 0 -2px 6px rgba(0,0,0,0.2);
+  }
+  .white-key.quiz-root {
+    background: linear-gradient(180deg, #3a2a6a 0%, #2a1a5a 15%, #1a0a4a 100%) !important;
+  }
+  .white-key.quiz-target {
+    background: linear-gradient(180deg, #1a4a2a 0%, #0a3a1a 15%, #002a0a 100%) !important;
+  }
+
+  .note-label {
+    font-size: 11px; font-weight: 500;
+    color: #aaa; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .white-key.c-key .note-label { color: #888; font-weight: 600; }
+  .labels-off .note-label { opacity: 0; }
+
+  .black-key {
+    position: absolute;
+    width: 8%;
+    height: 60%;
+    background: linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 60%, #111 100%);
+    border-radius: 0 0 5px 5px;
+    cursor: pointer; z-index: 2;
+    box-shadow: 2px 4px 8px rgba(0,0,0,0.7), inset 0 -3px 5px rgba(255,255,255,0.05);
+    transition: background 0.05s;
+  }
+  .black-key.active {
+    background: linear-gradient(180deg, #2a4a70 0%, #1a3050 60%, #0a1828 100%);
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.8), inset 0 -2px 3px rgba(100,160,220,0.2);
+  }
+  .black-key.quiz-root {
+    background: linear-gradient(180deg, #3a2a8a 0%, #2a1a6a 60%, #1a0a4a 100%) !important;
+  }
+  .black-key.quiz-target {
+    background: linear-gradient(180deg, #1a5a2a 0%, #0a4a1a 60%, #003a0a 100%) !important;
+  }
+
+  .studio-label {
+    position: absolute;
+    top: 8px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 0.2em;
+    color: #333; font-weight: 500;
+    pointer-events: none; z-index: 5;
+  }
+
+  .kb-hint {
+    position: absolute;
+    bottom: 6px; right: 10px;
+    font-size: 10px; color: #2a2a2a;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <button class="tab active" id="tabFreestyle">
+    <svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="4" width="3" height="16" rx="1"/><rect x="7" y="4" width="3" height="16" rx="1"/><rect x="12" y="4" width="3" height="16" rx="1"/><rect x="17" y="4" width="3" height="16" rx="1"/></svg>
+    Freestyle
+  </button>
+  <button class="tab" id="tabQuiz">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3"/><path d="M12 11v2M12 15h.01"/><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/></svg>
+    Interval Quiz
+  </button>
+  <div class="spacer"></div>
+  <div class="right-controls">
+    <div class="pill-btn" id="intervalToggle">
+      <span class="dot" id="toggleDot"></span>
+      Interval Mode
+    </div>
+    <div class="pill-btn" id="labelToggle">
+      <span class="dot" id="labelDot"></span>
+      Note Labels
+    </div>
+  </div>
+</div>
+
+<!-- INFO PANEL (freestyle / interval mode display) -->
+<div class="info-panel" id="infoPanel">
+  <div class="interval-name hidden" id="intervalName">—</div>
+  <div class="notes-played" id="notesPlayed">Play a key to begin</div>
+</div>
+
+<!-- QUIZ PANEL -->
+<div class="quiz-panel" id="quizPanel">
+  <div class="quiz-prompt">
+    <div class="label">Root Note</div>
+    <div class="value" id="quizRoot">—</div>
+  </div>
+  <div class="quiz-prompt">
+    <div class="label">Target Interval</div>
+    <div class="value" id="quizInterval">—</div>
+  </div>
+  <button class="randomize-btn" id="randomizeBtn">Randomize</button>
+  <div class="quiz-result waiting" id="quizResult">Press Randomize to start</div>
+</div>
+
+<!-- PIANO -->
+<div class="piano-area">
+  <div class="studio-label">IMPALA STUDIOS</div>
+  <div class="piano-bridge"></div>
+  <div class="keys-container" id="keysContainer">
+    <div class="keys-inner" id="keysInner"></div>
+  </div>
+  <div class="kb-hint">A–L for white keys · W E T Y U O P for black keys</div>
+</div>
+
+<script>
+// ── AUDIO ──
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let ctx = null;
+function getCtx() {
+  if (!ctx) ctx = new AudioContext();
+  if (ctx.state === 'suspended') ctx.resume();
+  return ctx;
+}
+
+const activeNodes = {};
+const heldNotes   = new Set();
+let pendingNote   = null;
+
+// ── STATE ──
+let intervalMode = false;
+let labelsOn     = true;   // labels ON by default
+let appMode      = 'freestyle'; // 'freestyle' | 'quiz'
+
+// Quiz state
+let quizRootMidi   = null;
+let quizTargetMidi = null;
+
+// ── CONSTANTS ──
+const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const WHITE_NOTES = [0,2,4,5,7,9,11];
+const BLACK_KEY_POSITIONS = [
+  { afterWhite: 0, semitone: 1 },
+  { afterWhite: 1, semitone: 3 },
+  { afterWhite: 3, semitone: 6 },
+  { afterWhite: 4, semitone: 8 },
+  { afterWhite: 5, semitone: 10 },
+];
+
+const INTERVAL_NAMES = [
+  'Unison','Minor 2nd','Major 2nd','Minor 3rd','Major 3rd',
+  'Perfect 4th','Tritone','Perfect 5th','Minor 6th','Major 6th',
+  'Minor 7th','Major 7th','Octave','Minor 9th','Major 9th',
+  'Minor 10th','Major 10th','Perfect 11th','Aug 11th','Perfect 12th',
+  'Minor 13th','Major 13th','Minor 14th','Major 14th','Two Octaves'
+];
+const INTERVAL_SHORT = [
+  'P1','m2','M2','m3','M3','P4','TT','P5','m6','M6',
+  'm7','M7','P8','m9','M9','m10','M10','P11','A11','P12',
+  'm13','M13','m14','M14','P15'
+];
+
+// Quiz uses intervals 1–12 (m2 through Octave) — practical range
+const QUIZ_INTERVALS = [1,2,3,4,5,6,7,8,9,10,11,12];
+
+// ── KEYBOARD RANGE: C3 to C5 (2 octaves + 1 note) ──
+// C3 = MIDI 48, C5 = MIDI 72
+const START_MIDI = 48; // C3
+const END_MIDI   = 72; // C5 (inclusive)
+
+function midiToFreq(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
+function noteName(midi)   {
+  const oct  = Math.floor(midi / 12) - 1;
+  const semi = midi % 12;
+  return NOTE_NAMES[semi] + oct;
+}
+
+// ── BUILD KEYBOARD ──
+function buildKeyboard() {
+  const inner = document.getElementById('keysInner');
+  inner.innerHTML = '';
+
+  // Collect all white key midis in range
+  const whiteMidis = [];
+  for (let m = START_MIDI; m <= END_MIDI; m++) {
+    if (WHITE_NOTES.includes(m % 12)) whiteMidis.push(m);
+  }
+
+  const totalWhite = whiteMidis.length;
+
+  // Build white keys as flex children; track their index for black key positioning
+  whiteMidis.forEach((midi, idx) => {
+    const semi = midi % 12;
+    const key  = document.createElement('div');
+    key.className = 'white-key' + (semi === 0 ? ' c-key' : '');
+    key.dataset.midi = midi;
+    key.dataset.widx = idx;
+
+    const label = document.createElement('span');
+    label.className = 'note-label';
+    label.textContent = noteName(midi);
+    key.appendChild(label);
+
+    addKeyListeners(key, midi);
+    inner.appendChild(key);
+  });
+
+  // Black keys — positioned after rendering so we know widths
+  // Use percentage positioning based on white key slot
+  requestAnimationFrame(() => positionBlackKeys(whiteMidis));
+}
+
+function positionBlackKeys(whiteMidis) {
+  const inner     = document.getElementById('keysInner');
+  const totalW    = whiteMidis.length;
+  const slotPct   = 100 / totalW;   // % width per white key slot
+
+  // Remove old black keys
+  inner.querySelectorAll('.black-key').forEach(k => k.remove());
+
+  // For each white key, check if the next semitone up is black and in range
+  whiteMidis.forEach((midi, idx) => {
+    const blackMidi = midi + 1;
+    const semi      = blackMidi % 12;
+    // Is this semitone a black key?
+    if (![1,3,6,8,10].includes(semi)) return;
+    if (blackMidi > END_MIDI) return;
+
+    const key = document.createElement('div');
+    key.className = 'black-key';
+    key.dataset.midi = blackMidi;
+
+    // Center over the border between white key idx and idx+1
+    const centerPct  = (idx + 1) * slotPct;
+    const blackWPct  = slotPct * 0.6;
+    key.style.left   = (centerPct - blackWPct / 2) + '%';
+    key.style.width  = blackWPct + '%';
+
+    addKeyListeners(key, blackMidi);
+    inner.appendChild(key);
+  });
+}
+
+function addKeyListeners(key, midi) {
+  key.addEventListener('pointerdown',  e => { e.preventDefault(); pressNote(midi); });
+  key.addEventListener('pointerup',    e => { e.preventDefault(); releaseNote(midi); });
+  key.addEventListener('pointerleave', e => { if (e.buttons) releaseNote(midi); });
+  key.addEventListener('pointerenter', e => { if (e.buttons) pressNote(midi); });
+}
+
+// ── SOUND ──
+function playNote(midi) {
+  const ac = getCtx();
+  if (activeNodes[midi]) return;
+  const freq     = midiToFreq(midi);
+  const gainNode = ac.createGain();
+  gainNode.connect(ac.destination);
+
+  const freqs = [freq, freq*2, freq*3, freq*4];
+  const gains = [0.5, 0.25, 0.1, 0.05];
+  const oscs  = freqs.map((f, i) => {
+    const o = ac.createOscillator();
+    o.type  = i === 0 ? 'triangle' : 'sine';
+    o.frequency.value = f;
+    const g = ac.createGain();
+    g.gain.value = gains[i];
+    o.connect(g); g.connect(gainNode); o.start();
+    return { o, g };
+  });
+
+  gainNode.gain.setValueAtTime(0, ac.currentTime);
+  gainNode.gain.linearRampToValueAtTime(0.4, ac.currentTime + 0.008);
+  gainNode.gain.exponentialRampToValueAtTime(0.12, ac.currentTime + 0.3);
+  gainNode.gain.exponentialRampToValueAtTime(0.06, ac.currentTime + 1.5);
+  activeNodes[midi] = { oscs, gainNode, ac };
+}
+
+function stopNote(midi) {
+  const node = activeNodes[midi];
+  if (!node) return;
+  const { oscs, gainNode, ac } = node;
+  const t = ac.currentTime;
+  gainNode.gain.cancelScheduledValues(t);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, t);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  setTimeout(() => {
+    oscs.forEach(({ o }) => { try { o.stop(); } catch(e){} });
+    gainNode.disconnect();
+  }, 400);
+  delete activeNodes[midi];
+}
+
+// ── PRESS / RELEASE ──
+function pressNote(midi) {
+  if (heldNotes.has(midi)) return;
+  heldNotes.add(midi);
+  playNote(midi);
+  highlightKey(midi, true);
+  if (appMode === 'freestyle') updateIntervalDisplay();
+  if (appMode === 'quiz')      checkQuizAnswer();
+}
+
+function releaseNote(midi) {
+  if (!heldNotes.has(midi)) return;
+  heldNotes.delete(midi);
+  stopNote(midi);
+  highlightKey(midi, false);
+  if (appMode === 'freestyle') updateIntervalDisplay();
+}
+
+function highlightKey(midi, on) {
+  document.querySelectorAll(`[data-midi="${midi}"]`).forEach(k => {
+    // In quiz mode, preserve quiz highlights
+    if (appMode === 'quiz') {
+      if (on) k.classList.add('active');
+      else    k.classList.remove('active');
+    } else {
+      k.classList.toggle('active', on);
+    }
+  });
+}
+
+// ── INTERVAL DISPLAY (freestyle) ──
+function updateIntervalDisplay() {
+  const nameEl  = document.getElementById('intervalName');
+  const notesEl = document.getElementById('notesPlayed');
+
+  if (!intervalMode) {
+    nameEl.classList.add('hidden');
+    notesEl.textContent = 'Play a key to begin';
+    return;
+  }
+
+  const notes = [...heldNotes].sort((a, b) => a - b);
+
+  if (notes.length >= 2) {
+    showInterval(notes[0], notes[notes.length - 1]);
+    pendingNote = null;
+    return;
+  }
+
+  if (notes.length === 1) {
+    const pressed = notes[0];
+    if (pendingNote !== null && pressed !== pendingNote) {
+      showInterval(Math.min(pendingNote, pressed), Math.max(pendingNote, pressed));
+      pendingNote = null;
+      return;
+    }
+    if (!nameEl.classList.contains('hidden')) nameEl.classList.add('hidden');
+    pendingNote = pressed;
+    notesEl.textContent = `${noteName(pressed)} — now play the second note`;
+    return;
+  }
+
+  // 0 notes held
+  if (pendingNote !== null) return; // keep prompt alive
+  nameEl.classList.add('hidden');
+  notesEl.textContent = 'Play a key to begin';
+}
+
+function showInterval(low, high) {
+  const nameEl  = document.getElementById('intervalName');
+  const notesEl = document.getElementById('notesPlayed');
+  const s       = high - low;
+  const name    = s < INTERVAL_NAMES.length ? INTERVAL_NAMES[s] : s + ' semitones';
+  const short   = s < INTERVAL_SHORT.length ? ` (${INTERVAL_SHORT[s]})` : '';
+  nameEl.textContent = name + short;
+  nameEl.classList.remove('hidden');
+  notesEl.textContent = `${noteName(low)} → ${noteName(high)} · ${s} semitone${s !== 1 ? 's' : ''}`;
+}
+
+// ── QUIZ MODE ──
+function randomizeQuiz() {
+  // Pick a root note that leaves room for the target within C3–C5
+  const maxInterval = Math.max(...QUIZ_INTERVALS); // 12
+  const rootMin     = START_MIDI;
+  const rootMax     = END_MIDI - 1; // at least m2 must fit
+  const validRoots  = [];
+  for (let m = rootMin; m <= rootMax; m++) validRoots.push(m);
+
+  quizRootMidi = validRoots[Math.floor(Math.random() * validRoots.length)];
+
+  // Pick interval whose target fits on the keyboard
+  const validIntervals = QUIZ_INTERVALS.filter(i => quizRootMidi + i <= END_MIDI);
+  if (validIntervals.length === 0) { randomizeQuiz(); return; }
+
+  const semi       = validIntervals[Math.floor(Math.random() * validIntervals.length)];
+  quizTargetMidi   = quizRootMidi + semi;
+
+  // Update UI
+  document.getElementById('quizRoot').textContent     = noteName(quizRootMidi);
+  document.getElementById('quizInterval').textContent = INTERVAL_NAMES[semi] + ` (${INTERVAL_SHORT[semi]})`;
+  document.getElementById('quizResult').textContent   = 'Play the target note!';
+  document.getElementById('quizResult').className     = 'quiz-result waiting';
+
+  // Clear any previous highlights
+  clearQuizHighlights();
+
+  // Release any held notes
+  [...heldNotes].forEach(m => releaseNote(m));
+}
+
+function clearQuizHighlights() {
+  document.querySelectorAll('.quiz-root,.quiz-target').forEach(k => {
+    k.classList.remove('quiz-root','quiz-target');
+  });
+}
+
+function checkQuizAnswer() {
+  if (quizTargetMidi === null) return;
+  const notes = [...heldNotes];
+  if (!notes.includes(quizTargetMidi)) return; // wait until target is played
+
+  const resultEl = document.getElementById('quizResult');
+
+  // Also check they're not playing wrong extra notes (optional: lenient — just need target)
+  resultEl.textContent = '✓ Correct!';
+  resultEl.className   = 'quiz-result correct';
+
+  // Show target highlight
+  document.querySelectorAll(`[data-midi="${quizTargetMidi}"]`).forEach(k => k.classList.add('quiz-target'));
+
+  // Auto-advance after 1.2s
+  setTimeout(() => {
+    if (appMode === 'quiz') randomizeQuiz();
+  }, 1200);
+}
+
+// ── TOGGLE INTERVAL MODE ──
+function toggleInterval() {
+  intervalMode = !intervalMode;
+  const btn = document.getElementById('intervalToggle');
+  const dot = document.getElementById('toggleDot');
+  btn.classList.toggle('on', intervalMode);
+  dot.style.background = intervalMode ? '#4ade80' : '#555';
+  if (!intervalMode) {
+    pendingNote = null;
+    document.getElementById('intervalName').classList.add('hidden');
+    document.getElementById('notesPlayed').textContent = 'Play a key to begin';
+  } else {
+    document.getElementById('notesPlayed').textContent = 'Play a key to begin';
+  }
+}
+
+// ── TOGGLE NOTE LABELS ──
+function toggleLabels() {
+  labelsOn = !labelsOn;
+  const btn = document.getElementById('labelToggle');
+  const dot = document.getElementById('labelDot');
+  btn.classList.toggle('on', labelsOn);
+  dot.style.background = labelsOn ? '#4ade80' : '#555';
+  document.getElementById('keysInner').classList.toggle('labels-off', !labelsOn);
+}
+
+// ── SWITCH MODE ──
+function setMode(mode) {
+  appMode = mode;
+  document.getElementById('tabFreestyle').classList.toggle('active', mode === 'freestyle');
+  document.getElementById('tabQuiz').classList.toggle('active',      mode === 'quiz');
+  document.getElementById('infoPanel').style.display  = mode === 'freestyle' ? '' : 'none';
+  document.getElementById('quizPanel').classList.toggle('visible',   mode === 'quiz');
+
+  clearQuizHighlights();
+  [...heldNotes].forEach(m => releaseNote(m));
+  pendingNote    = null;
+  quizRootMidi   = null;
+  quizTargetMidi = null;
+
+  if (mode === 'freestyle') {
+    document.getElementById('intervalName').classList.add('hidden');
+    document.getElementById('notesPlayed').textContent = 'Play a key to begin';
+  }
+}
+
+// ── KEYBOARD MAPPING (C4 area) ──
+const KB_WHITE     = ['a','s','d','f','g','h','j','k','l',';',"'"];
+const KB_BLACK     = ['w','e','t','y','u','o','p'];
+// Map to C3 range (midi 48+)
+const KB_WHITE_MIDI = [48,50,52,53,55,57,59,60,62,64,65]; // C3..F4
+const KB_BLACK_MIDI = [49,51,54,56,58,61,63];              // C#3..D#4
+
+const kbToMidi = {};
+KB_WHITE.forEach((k, i) => { kbToMidi[k] = KB_WHITE_MIDI[i]; });
+KB_BLACK.forEach((k, i) => { kbToMidi[k] = KB_BLACK_MIDI[i]; });
+
+const pressedKeys = new Set();
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const midi = kbToMidi[e.key.toLowerCase()];
+  if (midi !== undefined && !pressedKeys.has(e.key)) {
+    pressedKeys.add(e.key); pressNote(midi);
+  }
+});
+document.addEventListener('keyup', e => {
+  const midi = kbToMidi[e.key.toLowerCase()];
+  if (midi !== undefined) { pressedKeys.delete(e.key); releaseNote(midi); }
+});
+
+// Touch — prevent scroll only on keys
+document.getElementById('keysContainer').addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+
+// ── INIT ──
+buildKeyboard();
+
+// Set label toggle to ON state visually
+document.getElementById('labelToggle').classList.add('on');
+document.getElementById('labelDot').style.background = '#4ade80';
+
+window.addEventListener('resize', () => {
+  const whiteMidis = [];
+  for (let m = START_MIDI; m <= END_MIDI; m++) {
+    if ([0,2,4,5,7,9,11].includes(m % 12)) whiteMidis.push(m);
+  }
+  positionBlackKeys(whiteMidis);
+});
+
+document.getElementById('intervalToggle').addEventListener('click', toggleInterval);
+document.getElementById('labelToggle').addEventListener('click', toggleLabels);
+document.getElementById('tabFreestyle').addEventListener('click', () => setMode('freestyle'));
+document.getElementById('tabQuiz').addEventListener('click', () => setMode('quiz'));
+document.getElementById('randomizeBtn').addEventListener('click', randomizeQuiz);
+</script>
+</body>
+</html>
