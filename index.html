@@ -134,6 +134,87 @@
   .quiz-result.wrong   { color: #f87171; }
   .quiz-result.waiting { color: #666; }
 
+ .quiz-controls {
+  position: relative;
+  min-width: 240px;
+}
+
+.interval-filter-btn {
+  background: #252525;
+  border: 1px solid #3a3a3a;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.interval-dropdown {
+  display: none;
+
+  position: absolute;
+  top: 42px;
+  right: 0;
+
+  width: 260px;
+  max-height: 340px;
+
+  overflow-y: auto;
+
+  background: #1f1f1f;
+
+  border: 1px solid #333;
+
+  border-radius: 10px;
+
+  z-index: 1000;
+}
+
+.interval-dropdown.open {
+  display: block;
+}
+
+.interval-header {
+  padding: 10px;
+  border-bottom: 1px solid #333;
+}
+
+.interval-count {
+  color: #aaa;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.interval-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.interval-actions button {
+  flex: 1;
+
+  background: #333;
+
+  border: none;
+
+  color: white;
+
+  padding: 6px;
+
+  border-radius: 6px;
+
+  cursor: pointer;
+}
+
+.interval-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: white;
+}
+
+.interval-option:hover {
+  background: #2a2a2a;
+}
   /* ── PIANO WRAPPER ── */
   .piano-area {
     flex: 1;
@@ -279,7 +360,40 @@
     <div class="value" id="quizInterval">—</div>
   </div>
   <button class="randomize-btn" id="randomizeBtn">Randomize</button>
-  <div class="quiz-result waiting" id="quizResult">Press Randomize to start</div>
+  <div class="quiz-controls">
+
+  <button class="interval-filter-btn" id="intervalFilterBtn">
+    Interval Filter ▼
+  </button>
+
+  <div class="interval-dropdown" id="intervalDropdown">
+
+    <div class="interval-header">
+
+      <div class="interval-count" id="intervalCount">
+        Selected: 12/12
+      </div>
+
+      <div class="interval-actions">
+        <button id="selectAllIntervals">
+          Select All
+        </button>
+
+        <button id="clearIntervals">
+          Clear
+        </button>
+      </div>
+
+    </div>
+
+    <div id="intervalOptions"></div>
+
+  </div>
+
+  <div class="quiz-result waiting" id="quizResult">
+    Press Randomize to start
+  </div>
+
 </div>
 
 <!-- PIANO -->
@@ -341,8 +455,9 @@ const INTERVAL_SHORT = [
 ];
 
 // Quiz uses intervals 1–12 (m2 through Octave) — practical range
-const QUIZ_INTERVALS = [1,2,3,4,5,6,7,8,9,10,11,12];
-
+let activeQuizIntervals =
+  [1,2,3,4,5,6,7,8,9,10,11,12];
+ 
 // ── KEYBOARD RANGE: C3 to C5 (2 octaves + 1 note) ──
 // C3 = MIDI 48, C5 = MIDI 72
 const START_MIDI = 48; // C3
@@ -356,6 +471,62 @@ function noteName(midi)   {
 }
 function pitchClassName(midi) {
   return NOTE_NAMES[midi % 12];
+}
+
+ function updateIntervalCount() {
+
+  document.getElementById('intervalCount')
+    .textContent =
+      `Selected: ${activeQuizIntervals.length}/12`;
+}
+
+function buildIntervalDropdown() {
+
+  const container =
+    document.getElementById('intervalOptions');
+
+  container.innerHTML = '';
+
+  for (let i = 1; i <= 12; i++) {
+
+    const row =
+      document.createElement('div');
+
+    row.className =
+      'interval-option';
+
+    row.dataset.interval = i;
+
+    const checked =
+      activeQuizIntervals.includes(i);
+
+    row.innerHTML =
+      `${checked ? '☑' : '☐'} ${INTERVAL_NAMES[i]} (${INTERVAL_SHORT[i]})`;
+
+    row.onclick = () => {
+
+      const interval =
+        Number(row.dataset.interval);
+
+      if (activeQuizIntervals.includes(interval)) {
+
+        activeQuizIntervals =
+          activeQuizIntervals.filter(
+            x => x !== interval
+          );
+
+      } else {
+
+        activeQuizIntervals.push(interval);
+      }
+
+      buildIntervalDropdown();
+    };
+
+    container.appendChild(row);
+  }
+
+  updateIntervalCount();
 }
 // ── BUILD KEYBOARD ──
 function buildKeyboard() {
@@ -563,7 +734,18 @@ function randomizeQuiz() {
   quizRootMidi = validRoots[Math.floor(Math.random() * validRoots.length)];
 
   // Pick interval whose target fits on the keyboard
-  const validIntervals = QUIZ_INTERVALS.filter(i => quizRootMidi + i <= END_MIDI);
+  const validIntervals =
+  activeQuizIntervals.filter(
+    i => quizRootMidi + i <= END_MIDI
+  );
+ if (validIntervals.length === 0) {
+
+  document.getElementById('quizResult')
+    .textContent =
+      'No intervals selected';
+
+  return;
+}
   if (validIntervals.length === 0) { randomizeQuiz(); return; }
 
   const semi       = validIntervals[Math.floor(Math.random() * validIntervals.length)];
@@ -689,8 +871,9 @@ document.addEventListener('keyup', e => {
 document.getElementById('keysContainer').addEventListener('touchstart', e => e.preventDefault(), { passive: false });
 
 // ── INIT ──
+buildIntervalDropdown();
 buildKeyboard();
-
+ 
 // Set label toggle to ON state visually
 document.getElementById('labelToggle').classList.add('on');
 document.getElementById('labelDot').style.background = '#4ade80';
@@ -702,7 +885,49 @@ window.addEventListener('resize', () => {
   }
   positionBlackKeys(whiteMidis);
 });
+ document
+  .getElementById('intervalFilterBtn')
+  .addEventListener('click', () => {
 
+    document
+      .getElementById('intervalDropdown')
+      .classList.toggle('open');
+
+});
+ document
+  .getElementById('selectAllIntervals')
+  .addEventListener('click', () => {
+
+    activeQuizIntervals =
+      [1,2,3,4,5,6,7,8,9,10,11,12];
+
+    buildIntervalDropdown();
+});
+ document
+  .getElementById('clearIntervals')
+  .addEventListener('click', () => {
+
+    activeQuizIntervals = [];
+
+    buildIntervalDropdown();
+});
+
+document.addEventListener('click', e => {
+
+  const dropdown =
+    document.getElementById('intervalDropdown');
+
+  const button =
+    document.getElementById('intervalFilterBtn');
+
+  if (
+    !dropdown.contains(e.target) &&
+    !button.contains(e.target)
+  ) {
+    dropdown.classList.remove('open');
+  }
+
+});
 document.getElementById('intervalToggle').addEventListener('click', toggleInterval);
 document.getElementById('labelToggle').addEventListener('click', toggleLabels);
 document.getElementById('tabFreestyle').addEventListener('click', () => setMode('freestyle'));
