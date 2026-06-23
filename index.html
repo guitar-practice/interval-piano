@@ -395,7 +395,8 @@
   </div>
 
 </div>
-
+</div>
+ 
 <!-- PIANO -->
 <div class="piano-area">
   <div class="studio-label">IMPALA STUDIOS</div>
@@ -725,7 +726,7 @@ function showInterval(low, high) {
 // ── QUIZ MODE ──
 function randomizeQuiz() {
   // Pick a root note that leaves room for the target within C3–C5
-  const maxInterval = Math.max(...QUIZ_INTERVALS); // 12
+  const maxInterval = Math.max(...activeQuizIntervals); // 12
   const rootMin     = START_MIDI;
   const rootMax     = END_MIDI - 1; // at least m2 must fit
   const validRoots  = [];
@@ -746,7 +747,6 @@ function randomizeQuiz() {
 
   return;
 }
-  if (validIntervals.length === 0) { randomizeQuiz(); return; }
 
   const semi       = validIntervals[Math.floor(Math.random() * validIntervals.length)];
   quizTargetMidi   = quizRootMidi + semi;
