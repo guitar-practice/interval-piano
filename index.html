@@ -314,6 +314,7 @@ let appMode      = 'freestyle'; // 'freestyle' | 'quiz'
 // Quiz state
 let quizRootMidi   = null;
 let quizTargetMidi = null;
+ let quizTargetPitch   = null;
 
 // ── CONSTANTS ──
 const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -353,7 +354,9 @@ function noteName(midi)   {
   const semi = midi % 12;
   return NOTE_NAMES[semi] + oct;
 }
-
+function pitchClassName(midi) {
+  return NOTE_NAMES[midi % 12];
+}
 // ── BUILD KEYBOARD ──
 function buildKeyboard() {
   const inner = document.getElementById('keysInner');
@@ -565,9 +568,11 @@ function randomizeQuiz() {
 
   const semi       = validIntervals[Math.floor(Math.random() * validIntervals.length)];
   quizTargetMidi   = quizRootMidi + semi;
+  quizTargetPitch = quizTargetMidi % 12;
 
   // Update UI
-  document.getElementById('quizRoot').textContent     = noteName(quizRootMidi);
+  document.getElementById('quizRoot').textContent =
+    pitchClassName(quizRootMidi);
   document.getElementById('quizInterval').textContent = INTERVAL_NAMES[semi] + ` (${INTERVAL_SHORT[semi]})`;
   document.getElementById('quizResult').textContent   = 'Play the target note!';
   document.getElementById('quizResult').className     = 'quiz-result waiting';
@@ -588,7 +593,12 @@ function clearQuizHighlights() {
 function checkQuizAnswer() {
   if (quizTargetMidi === null) return;
   const notes = [...heldNotes];
-  if (!notes.includes(quizTargetMidi)) return; // wait until target is played
+
+const correct = notes.some(
+    note => note % 12 === quizTargetPitch
+);
+
+if (!correct) return; // wait until target is played
 
   const resultEl = document.getElementById('quizResult');
 
